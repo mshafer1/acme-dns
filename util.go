@@ -63,6 +63,12 @@ func sanitizeString(s string) string {
 	return re.ReplaceAllString(s, "")
 }
 
+func sanitizeExpandedString(s string) string {
+	// URL safe base64 alphabet without padding as defined in ACME, but Let's Encrypt is using dots
+	re, _ := regexp.Compile(`[^A-Za-z\-\_0-9\.]+`)
+	return re.ReplaceAllString(s, "")
+}
+
 func sanitizeIPv6addr(s string) string {
 	// Remove brackets from IPv6 addresses, net.ParseCIDR needs this
 	re, _ := regexp.Compile(`[\[\]]+`)

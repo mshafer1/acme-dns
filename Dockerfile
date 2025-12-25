@@ -1,10 +1,10 @@
 FROM golang:alpine AS builder
-LABEL maintainer="joona@kuori.org"
+# LABEL maintainer="joona@kuori.org"
 
 RUN apk add --update gcc musl-dev git
 
 ENV GOPATH /tmp/buildcache
-RUN git clone https://github.com/joohoi/acme-dns /tmp/acme-dns
+COPY . /tmp/acme-dns
 WORKDIR /tmp/acme-dns
 RUN CGO_ENABLED=1 go build
 

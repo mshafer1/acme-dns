@@ -1,0 +1,81 @@
+name: Docker build
+
+on:
+  # schedule:
+  #   - cron: '0 0 * * 0' # weekly at 00:00 on Sunday -> https://crontab.guru/#0_0_*_*_0
+  push:
+    branches:
+      - 'main'
+    paths:
+      - '**/*'
+      - '!docs'
+  workflow_dispatch:
+
+env:
+  repo_major_minor: '0.1'  # manually update for major.minor changes
+  app_name: acme-dns-fork
+
+jobs:
+  set_build_counter:
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.set-build-counter.outputs.count }}
+      version: "${{ env.repo_major_minor }}.${{ steps.set-build-counter.outputs.count }}"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: mshafer1/gh-actions/set-build-counter@main
+        id: set-build-counter
+        with:
+          seed: '${{ env.repo_major_minor }}'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }} # default GITHUB_TOKEN has no permission to set repo variables, must be a PAT that has variable write
+  build_and_push:
+    runs-on: ubuntu-latest
+    needs: set_build_counter
+    environment: Release
+    steps:
+      - uses: actions/checkout@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: |
+            ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}
+          flavor: |
+            latest=true
+          labels: |
+            org.opencontainers.image.description="Docker image for ${{ env.app_name }}"
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=semver,pattern=build-{{ env.repo_major_minor }}.{{ needs.set_build_counter.outputs.count }}
+            type=semver,pattern=build-{{ env.repo_major_minor }}
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:dev, ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:latest, ${{ steps.meta.outputs.tags }}
+      - name: Tag with app version and conditionally push
+        run: |
+          decider_version="]${{ needs.set_build_counter.outputs.version }}"
+
+          if ! docker manifest inspect ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:${decider_version} > /dev/null; then
+            echo "Tagging with version ${decider_version} and pushing"
+
+            for v in ${{ env.app_name }}_${decider_version} ${{ env.app_name }}_${{ env.repo_major_minor }}} ${decider_version}; do
+              docker tag ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:dev ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:$v
+            done
+
+            # now remove the dev tag so we don't push it
+            docker rmi ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:dev
+            docker image push --all-tags ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}
+          else
+            echo "Version ${decider_version} already pushed"
+          fi

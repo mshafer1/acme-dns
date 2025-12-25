@@ -70,7 +70,7 @@ jobs:
           if ! docker manifest inspect ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:${decider_version} > /dev/null; then
             echo "Tagging with version ${decider_version} and pushing"
 
-            for v in ${{ env.app_name }}_${decider_version} ${{ env.app_name }}_${{ env.repo_major_minor }}} ${decider_version}; do
+            for v in ${{ env.app_name }}_${decider_version} ${{ env.app_name }}_${{ env.repo_major_minor }} ${decider_version}; do
               docker tag ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:dev ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:$v
             done
 

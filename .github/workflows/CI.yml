@@ -65,7 +65,7 @@ jobs:
           tags: ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:dev, ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:latest, ${{ steps.meta.outputs.tags }}
       - name: Tag with app version and conditionally push
         run: |
-          decider_version="]${{ needs.set_build_counter.outputs.version }}"
+          decider_version="${{ needs.set_build_counter.outputs.version }}"
 
           if ! docker manifest inspect ${{ vars.DOCKER_USERNAME }}/${{ env.app_name }}:${decider_version} > /dev/null; then
             echo "Tagging with version ${decider_version} and pushing"
